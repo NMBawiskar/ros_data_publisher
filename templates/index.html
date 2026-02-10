@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROS Topic Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .controls {
+            padding: 25px 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 1.1em;
+        }
+
+        .control-group select {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .control-group select:hover {
+            border-color: #667eea;
+        }
+
+        .control-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .status.connected .status-dot {
+            background: #28a745;
+        }
+
+        .status.disconnected .status-dot {
+            background: #dc3545;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .data-display {
+            padding: 30px;
+        }
+
+        .data-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+            transition: transform 0.2s ease;
+        }
+
+        .data-card:hover {
+            transform: translateX(5px);
+        }
+
+        .data-card h3 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .data-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .data-label {
+            font-size: 0.85em;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .data-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #667eea;
+            font-family: 'Courier New', monospace;
+        }
+
+        .timestamp {
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-top: 15px;
+            font-style: italic;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .no-data-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .nested-data {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 ROS Topic Viewer</h1>
+            <p>Real-time monitoring of ROS topics</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="topicSelect">Select Topic:</label>
+                <select id="topicSelect">
+                    <option value="">-- Choose a topic --</option>
+                </select>
+                <div class="status disconnected" id="status">
+                    <span class="status-dot"></span>
+                    <span>Disconnected</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="data-display" id="dataDisplay">
+            <div class="no-data">
+                <div class="no-data-icon">📡</div>
+                <h3>No Topic Selected</h3>
+                <p>Please select a topic from the dropdown above to start viewing data</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        let currentTopic = null;
+
+        // Fetch available topics on page load
+        async function loadTopics() {
+            try {
+                const response = await fetch('/topics');
+                const topics = await response.json();
+                
+                const select = document.getElementById('topicSelect');
+                topics.forEach(topic => {
+                    const option = document.createElement('option');
+                    option.value = topic.name;
+                    option.textContent = `${topic.name} (${topic.type})`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading topics:', error);
+            }
+        }
+
+        // Connect to a topic stream
+        function connectToTopic(topicName) {
+            // Close existing connection
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            if (!topicName) {
+                document.getElementById('dataDisplay').innerHTML = `
+                    <div class="no-data">
+                        <div class="no-data-icon">📡</div>
+                        <h3>No Topic Selected</h3>
+                        <p>Please select a topic from the dropdown above to start viewing data</p>
+                    </div>
+                `;
+                updateStatus(false);
+                return;
+            }
+
+            currentTopic = topicName;
+            
+            // Create new EventSource connection
+            eventSource = new EventSource(`/stream/${encodeURIComponent(topicName)}`);
+            
+            eventSource.onopen = () => {
+                updateStatus(true);
+            };
+            
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                displayData(data);
+            };
+            
+            eventSource.onerror = () => {
+                updateStatus(false);
+                eventSource.close();
+            };
+        }
+
+        // Update connection status
+        function updateStatus(connected) {
+            const statusEl = document.getElementById('status');
+            if (connected) {
+                statusEl.className = 'status connected';
+                statusEl.innerHTML = '<span class="status-dot"></span><span>Connected</span>';
+            } else {
+                statusEl.className = 'status disconnected';
+                statusEl.innerHTML = '<span class="status-dot"></span><span>Disconnected</span>';
+            }
+        }
+
+        // Display data on the page
+        function displayData(data) {
+            const displayEl = document.getElementById('dataDisplay');
+            let html = '<div class="data-card">';
+            html += `<h3>${data.topic}</h3>`;
+            html += '<div class="data-grid">';
+            html += renderDataObject(data.data);
+            html += '</div>';
+            html += `<div class="timestamp">Last updated: ${data.timestamp}</div>`;
+            html += '</div>';
+            displayEl.innerHTML = html;
+        }
+
+        // Recursively render data object
+        function renderDataObject(obj, prefix = '') {
+            let html = '';
+            
+            for (const [key, value] of Object.entries(obj)) {
+                const label = prefix ? `${prefix}.${key}` : key;
+                
+                if (typeof value === 'object' && value !== null) {
+                    html += renderDataObject(value, label);
+                } else {
+                    html += `
+                        <div class="data-item">
+                            <div class="data-label">${label}</div>
+                            <div class="data-value">${value}</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            return html;
+        }
+
+        // Event listener for topic selection
+        document.getElementById('topicSelect').addEventListener('change', (e) => {
+            connectToTopic(e.target.value);
+        });
+
+        // Load topics on page load
+        loadTopics();
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+        });
+    </script>
+</body>
+</html>
