@@ -244,17 +244,78 @@
         async function loadTopics() {
             try {
                 const response = await fetch('/topics');
-                const topics = await response.json();
+                const data = await response.json();
                 
                 const select = document.getElementById('topicSelect');
-                topics.forEach(topic => {
+                
+                // Clear existing options except the default one
+                select.innerHTML = '<option value="">-- Select a topic --</option>';
+                
+                // Check for errors
+                if (data.error) {
+                    const option = document.createElement('option');
+                    option.value = "";
+                    option.textContent = `❌ ${data.message || data.error}`;
+                    option.disabled = true;
+                    select.appendChild(option);
+                    
+                    // Show error in data display area
+                    document.getElementById('dataDisplay').innerHTML = `
+                        <div class="no-data">
+                            <div class="no-data-icon">⚠️</div>
+                            <h3>Error Loading Topics</h3>
+                            <p>${data.message || data.error}</p>
+                            ${data.message ? `<pre style="text-align: left; background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 15px; font-size: 0.9em;">${data.message}</pre>` : ''}
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Check if topics array exists and has items
+                if (!data.topics || data.topics.length === 0) {
+                    const option = document.createElement('option');
+                    option.value = "";
+                    option.textContent = "No topics found";
+                    option.disabled = true;
+                    select.appendChild(option);
+                    
+                    // Show no topics message
+                    document.getElementById('dataDisplay').innerHTML = `
+                        <div class="no-data">
+                            <div class="no-data-icon">📭</div>
+                            <h3>No Topics Found</h3>
+                            <p>No ROS2 topics are currently available. Make sure ROS2 nodes are running.</p>
+                            <p style="margin-top: 10px;"><button onclick="loadTopics()" style="padding: 10px 20px; border-radius: 5px; border: none; background: #667eea; color: white; cursor: pointer;">🔄 Refresh Topics</button></p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Add topics to select
+                data.topics.forEach(topic => {
                     const option = document.createElement('option');
                     option.value = topic.name;
-                    option.textContent = `${topic.name} (${topic.type})`;
+                    option.textContent = topic.type !== 'unknown' 
+                        ? `${topic.name} (${topic.type})` 
+                        : topic.name;
                     select.appendChild(option);
                 });
+                
+                console.log(`Loaded ${data.topics.length} topics`);
+                
             } catch (error) {
                 console.error('Error loading topics:', error);
+                const select = document.getElementById('topicSelect');
+                select.innerHTML = '<option value="">-- Error loading topics --</option>';
+                
+                document.getElementById('dataDisplay').innerHTML = `
+                    <div class="no-data">
+                        <div class="no-data-icon">❌</div>
+                        <h3>Connection Error</h3>
+                        <p>Failed to connect to the server</p>
+                        <p style="margin-top: 10px; font-size: 0.9em;">${error.message}</p>
+                    </div>
+                `;
             }
         }
 
